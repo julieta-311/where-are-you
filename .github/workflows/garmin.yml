@@ -1,0 +1,64 @@
+name: Build Garmin App
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    env:
+      SDK_URL: https://developer.garmin.com/downloads/connect-iq/sdks/connectiq-sdk-lin-7.4.3-2024-12-11-897364b6e.zip
+      SDK_DIR: ${{ github.workspace }}/sdk
+      GARMIN_DEV_KEY: ${{ github.workspace }}/developer_key.der
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - name: Install SDK Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.0-37 libusb-1.0-0
+
+      - name: Download and Extract SDK
+        run: |
+          mkdir -p $SDK_DIR
+          wget -qO sdk.zip $SDK_URL
+          unzip -q sdk.zip -d $SDK_DIR
+          echo "$SDK_DIR/bin" >> $GITHUB_PATH
+
+      - name: Setup Developer Key
+        run: |
+          if [ "${{ secrets.GARMIN_DEV_KEY_BASE64 }}" != "" ]; then
+            echo "${{ secrets.GARMIN_DEV_KEY_BASE64 }}" | base64 -d > $GARMIN_DEV_KEY
+          else
+            echo "WARNING: No secret key found. Generating a temporary one for testing build."
+            openssl genrsa -out key.pem 4096
+            openssl pkcs8 -topk8 -inform PEM -outform DER -in key.pem -out $GARMIN_DEV_KEY -nocrypt
+          fi
+
+      - name: Build Forerunner 55 PRG
+        run: |
+          cd where-are-you/app
+          make build DEVICE=fr55 KEY=$GARMIN_DEV_KEY
+
+      - name: Build Fenix 7 PRG
+        run: |
+          cd where-are-you/app
+          make build DEVICE=fenix7 KEY=$GARMIN_DEV_KEY
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: garmin-apps
+          path: where-are-you/app/bin/*.prg

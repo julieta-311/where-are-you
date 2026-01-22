@@ -1,0 +1,175 @@
+openapi: 3.0.3
+info:
+  title: Where Are You? API
+  description: API for the Garmin location sharing application.
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+paths:
+  /requests:
+    post:
+      summary: Send a location request to a friend
+      operationId: createRequest
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - requester_id
+                - target_id
+              properties:
+                requester_id:
+                  type: string
+                  description: The ID of the user sending the request
+                target_id:
+                  type: string
+                  description: The ID of the user receiving the request
+      responses:
+        '201':
+          description: Request created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocationRequest'
+        '400':
+          description: Invalid input
+        '500':
+          description: Internal server error
+
+    get:
+      summary: Get pending requests for a user
+      operationId: getPendingRequests
+      parameters:
+        - name: user_id
+          in: query
+          required: true
+          schema:
+            type: string
+          description: The ID of the user to check for requests
+      responses:
+        '200':
+          description: List of pending requests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LocationRequest'
+        '500':
+          description: Internal server error
+
+  /requests/{requestId}/respond:
+    post:
+      summary: Respond to a location request
+      operationId: respondToRequest
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - status
+              properties:
+                status:
+                  type: string
+                  enum: [accepted, denied]
+      responses:
+        '200':
+          description: Response recorded
+        '404':
+          description: Request not found
+        '500':
+          description: Internal server error
+
+  /location:
+    post:
+      summary: Update user location
+      operationId: updateLocation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LocationUpdate'
+      responses:
+        '200':
+          description: Location updated
+        '400':
+          description: Invalid input
+        '500':
+          description: Internal server error
+
+  /location/{userId}:
+    get:
+      summary: Get a user's location
+      description: Returns location only if a valid, active session exists between the requester and the target.
+      operationId: getLocation
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: requester_id
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User location
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocationUpdate'
+        '403':
+          description: Not authorized to view this location
+        '404':
+          description: Location or user not found
+
+components:
+  schemas:
+    LocationRequest:
+      type: object
+      properties:
+        id:
+          type: string
+        requester_id:
+          type: string
+        target_id:
+          type: string
+        status:
+          type: string
+          enum: [pending, accepted, denied]
+        created_at:
+          type: string
+          format: date-time
+
+    LocationUpdate:
+      type: object
+      required:
+        - user_id
+        - latitude
+        - longitude
+      properties:
+        user_id:
+          type: string
+        latitude:
+          type: number
+          format: double
+        longitude:
+          type: number
+          format: double
+        timestamp:
+          type: string
+          format: date-time

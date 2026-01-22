@@ -1,0 +1,25 @@
+# Binaries
+bin/
+*.prg
+*.iq
+*.o
+*.a
+
+# Keys
+developer_key.der
+developer_key.pem
+*.key
+*.keystore
+
+# System
+.DS_Store
+.vscode/
+
+# Server
+server/whereareyou.db
+server/server
+server/.idea/
+
+# Temp
+tmp/
+*.log
