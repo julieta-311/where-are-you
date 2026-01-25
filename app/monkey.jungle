@@ -1,14 +1,9 @@
 project.manifest = manifest.xml
 
-# Default paths
+# Default paths.
 base.sourcePath = source
 base.resourcePath = resources
 
-# Fenix 7 Series overrides
-# This adds the fenix7 specific source and test paths to the base paths
+# Fenix 7 Series overrides.
+# This adds the fenix7 specific source and test paths to the base paths.
 fenix7.sourcePath = $(base.sourcePath);source-fenix7;test-fenix7
-fenix7s.sourcePath = $(base.sourcePath);source-fenix7;test-fenix7
-fenix7x.sourcePath = $(base.sourcePath);source-fenix7;test-fenix7
-fenix7pro.sourcePath = $(base.sourcePath);source-fenix7;test-fenix7
-fenix7spro.sourcePath = $(base.sourcePath);source-fenix7;test-fenix7
-fenix7xpro.sourcePath = $(base.sourcePath);source-fenix7;test-fenix7

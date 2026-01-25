@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-22.04
 
     env:
-      SDK_URL: https://developer.garmin.com/downloads/connect-iq/sdks/connectiq-sdk-lin-7.4.3-2024-12-11-897364b6e.zip
+      SDK_URL: https://developer.garmin.com/downloads/connect-iq/sdks/connectiq-sdk-lin-8.4.0-2025-12-03-5122605dc.zip
       SDK_DIR: ${{ github.workspace }}/sdk
       GARMIN_DEV_KEY: ${{ github.workspace }}/developer_key.der
 
@@ -35,7 +35,41 @@ jobs:
           mkdir -p $SDK_DIR
           wget -qO sdk.zip $SDK_URL
           unzip -q sdk.zip -d $SDK_DIR
-          echo "$SDK_DIR/bin" >> $GITHUB_PATH
+
+          # Check if bin is directly in SDK_DIR or in a subdirectory.
+          if [ -d "$SDK_DIR/bin" ]; then
+             echo "SDK extracted to root."
+             echo "$SDK_DIR/bin" >> $GITHUB_PATH
+             echo "SDK_ROOT=$SDK_DIR" >> $GITHUB_ENV
+          else
+             # Find the subdirectory (handling different version naming).
+             SDK_SUBDIR=$(find $SDK_DIR -maxdepth 1 -type d -name "connectiq-sdk-lin-*" | head -n 1)
+             echo "SDK extracted to subdir: $SDK_SUBDIR."
+             echo "$SDK_SUBDIR/bin" >> $GITHUB_PATH
+             echo "SDK_DIR=$SDK_SUBDIR" >> $GITHUB_ENV
+             echo "SDK_ROOT=$SDK_SUBDIR" >> $GITHUB_ENV
+          fi
+
+      - name: Configure Connect IQ Environment
+        run: |
+          # Create the config file that points to the current SDK.
+          mkdir -p $HOME/.Garmin/ConnectIQ
+          echo "$SDK_ROOT" > $HOME/.Garmin/ConnectIQ/current-sdk.cfg
+          
+          # Setup Device Files.
+          mkdir -p $HOME/.Garmin/ConnectIQ/Devices
+          if [ -d "devices" ]; then
+            echo "Copying devices from repo to system location..."
+            cp -r devices/* $HOME/.Garmin/ConnectIQ/Devices/
+            
+            # Also copy to SDK directory/devices if possible (fallback location).
+            if [ -d "$SDK_ROOT" ]; then
+               mkdir -p $SDK_ROOT/devices
+               cp -r devices/* $SDK_ROOT/devices/
+            fi
+          else
+            echo "WARNING: 'devices' folder not found in repo."
+          fi
 
       - name: Setup Developer Key
         run: |
@@ -47,18 +81,21 @@ jobs:
             openssl pkcs8 -topk8 -inform PEM -outform DER -in key.pem -out $GARMIN_DEV_KEY -nocrypt
           fi
 
-      - name: Build Forerunner 55 PRG
+      - name: Build All Devices
+        working-directory: app
         run: |
-          cd where-are-you/app
-          make build DEVICE=fr55 KEY=$GARMIN_DEV_KEY
-
-      - name: Build Fenix 7 PRG
-        run: |
-          cd where-are-you/app
-          make build DEVICE=fenix7 KEY=$GARMIN_DEV_KEY
+          # Build only for devices confirmed to be in the repo/devices/ folder.
+          # Add more here AFTER you 'git add' the corresponding folders.
+          DEVICES="fr55 fenix7"
+          
+          for device in $DEVICES; do
+            echo "----------------------------------------"
+            echo "Building for $device..."
+            make build DEVICE=$device KEY=$GARMIN_DEV_KEY
+          done
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: garmin-apps
-          path: where-are-you/app/bin/*.prg
+          path: app/bin/*.prg
